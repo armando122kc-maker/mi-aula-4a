@@ -33,7 +33,7 @@ table{width:100%;border-collapse:collapse;margin-top:10px}th,td{padding:8px;bord
 <p class="small">Muestra al alumno su tarjeta QR y apunta la cámara hacia el código.</p>
 <button onclick="startScanner()">📷 ESCANEAR QR</button>
 <button class="secondary" onclick="stopScanner()">⏹ Detener cámara</button>
-<video id="video" class="hidden" autoplay playsinline muted></video>
+<video id="video" class="hidden" autoplay playsinline muted></video><div id="qrReader" class="hidden"></div>
 <p id="cameraMsg">Cámara apagada.</p>
 </div>
 
@@ -88,6 +88,7 @@ table{width:100%;border-collapse:collapse;margin-top:10px}th,td{padding:8px;bord
 </div>
 
 </main>
+<script src="https://unpkg.com/html5-qrcode" defer></script>
 <script>
 const students=[
 {id:'4A-01',surname:'BE / CAAMAL',name:'IKER JHAEL'},
@@ -113,7 +114,7 @@ const students=[
 ];
 
 let records=JSON.parse(localStorage.getItem('MI_AULA_4A_RECORDS')||'[]');
-let selected=null,stream=null,detector=null,scanning=false;
+let selected=null,stream=null,detector=null,scanning=false,qrReader=null;
 
 function studentById(id){return students.find(s=>s.id===id)}
 function identify(id){
@@ -132,13 +133,22 @@ function identifyManual(){identify(manualCode.value)}
 async function startScanner(){
  if(!window.isSecureContext){cameraMsg.textContent='⚠️ La cámara requiere una conexión HTTPS.';return}
  if(!navigator.mediaDevices||!navigator.mediaDevices.getUserMedia){cameraMsg.textContent='⚠️ Este navegador no permite acceso a la cámara.';return}
- if(!('BarcodeDetector' in window)){cameraMsg.textContent='⚠️ Este navegador no tiene lector QR integrado. Usa el código manual.';return}
  try{
-  detector=new BarcodeDetector({formats:['qr_code']});
-  stream=await navigator.mediaDevices.getUserMedia({video:{facingMode:{ideal:'environment'}},audio:false});
-  video.srcObject=stream;video.classList.remove('hidden');scanning=true;
-  cameraMsg.textContent='📷 Apunta al código QR…';scanLoop();
- }catch(e){cameraMsg.textContent='❌ No se pudo abrir la cámara. Revisa el permiso del navegador.'}
+  if(window.BarcodeDetector){
+   detector=new BarcodeDetector({formats:['qr_code']});
+   stream=await navigator.mediaDevices.getUserMedia({video:{facingMode:{ideal:'environment'}},audio:false});
+   video.srcObject=stream;video.classList.remove('hidden');scanning=true;
+   cameraMsg.textContent='📷 Apunta al código QR…';scanLoop();
+   return;
+  }
+  if(!window.Html5Qrcode){cameraMsg.textContent='⏳ Cargando lector QR… intenta nuevamente en unos segundos.';return}
+  document.getElementById('qrReader').classList.remove('hidden');
+  qrReader=new Html5Qrcode('qrReader');
+  cameraMsg.textContent='📷 Apunta al código QR…';
+  await qrReader.start({facingMode:'environment'},{fps:10,qrbox:{width:250,height:250}},decodedText=>{
+   if(identify(decodedText)) stopScanner();
+  },()=>{});
+ }catch(e){cameraMsg.textContent='❌ No se pudo abrir la cámara. Revisa el permiso del navegador y vuelve a intentarlo.'}
 }
 async function scanLoop(){
  if(!scanning)return;
@@ -152,6 +162,8 @@ function stopScanner(){
  scanning=false;
  if(stream){stream.getTracks().forEach(t=>t.stop());stream=null}
  video.srcObject=null;video.classList.add('hidden');
+ if(qrReader){qrReader.stop().catch(()=>{}).finally(()=>{qrReader.clear().catch(()=>{});qrReader=null;});}
+ document.getElementById('qrReader').classList.add('hidden');
 }
 function saveRecord(){
  if(!selected){alert('Primero identifica al alumno con su QR.');return}
