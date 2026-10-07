@@ -29,6 +29,33 @@ table{width:100%;border-collapse:collapse;margin-top:10px}th,td{padding:8px;bord
 <main>
 
 <div class="card">
+<h2>🎯 Tarea activa</h2>
+<p class="small">Configura la tarea una sola vez. Después, cada QR escaneado quedará asociado automáticamente a esta tarea.</p>
+<div class="grid">
+<input id="taskName" placeholder="Ejemplo: Tarea 10 – La Jarra del Buen Beber">
+<select id="taskField">
+<option>Lenguajes</option>
+<option>Saberes y pensamiento científico</option>
+<option>Ética, naturaleza y sociedades</option>
+<option>De lo humano y lo comunitario</option>
+</select>
+<select id="taskTrim">
+<option>1er trimestre</option><option>2do trimestre</option><option>3er trimestre</option>
+</select>
+</div>
+<div class="grid">
+<button onclick="activateTask()">▶️ ACTIVAR TAREA</button>
+<button class="secondary" onclick="closeTask()">⏹ CERRAR TAREA</button>
+</div>
+<div id="activeTaskBox" class="success hidden"></div>
+</div>
+
+<div class="card hidden" id="taskProgressCard">
+<h2>📋 Entregas de la tarea</h2>
+<div id="taskProgress"></div>
+</div>
+
+<div class="card">
 <h2>📷 Identificar alumno</h2>
 <p class="small">Muestra al alumno su tarjeta QR y apunta la cámara hacia el código.</p>
 <button onclick="startScanner()">📷 ESCANEAR QR</button>
@@ -53,22 +80,14 @@ table{width:100%;border-collapse:collapse;margin-top:10px}th,td{padding:8px;bord
 </div>
 
 <div class="card">
-<h2>📝 Registrar actividad</h2>
+<h2>📝 Registrar calificación</h2>
+<div id="currentTaskInfo" class="small">Activa una tarea para comenzar.</div>
+<input id="activity" placeholder="Actividad o tarea" class="hidden">
 <div class="grid">
-<select id="field">
-<option>Lenguajes</option>
-<option>Saberes y pensamiento científico</option>
-<option>Ética, naturaleza y sociedades</option>
-<option>De lo humano y lo comunitario</option>
-</select>
-<select id="trimester">
-<option>1er trimestre</option><option>2do trimestre</option><option>3er trimestre</option>
-</select>
+<input id="grade" type="number" min="0" max="10" step="0.1" placeholder="Calificación 0–10">
+<button onclick="saveRecord()">💾 Guardar y escanear siguiente</button>
 </div>
-<input id="activity" placeholder="Actividad o tarea">
-<div class="grid"><input id="grade" type="number" min="0" max="10" step="0.1" placeholder="Calificación 0–10">
-<button onclick="saveRecord()">💾 Guardar registro</button></div>
-<p class="small">Primero identifica al alumno y después registra su actividad.</p>
+<p class="small">Con una tarea activa, el nombre, campo y trimestre se completan automáticamente. Después de guardar, puedes escanear al siguiente alumno.</p>
 </div>
 
 <div class="card">
@@ -114,6 +133,7 @@ const students=[
 ];
 
 let records=JSON.parse(localStorage.getItem('MI_AULA_4A_RECORDS')||'[]');
+let activeTask=JSON.parse(localStorage.getItem('MI_AULA_4A_ACTIVE_TASK')||'null');
 let selected=null,stream=null,detector=null,scanning=false,qrReader=null;
 
 function studentById(id){return students.find(s=>s.id===id)}
@@ -127,6 +147,10 @@ function identify(id){
  studentCode.textContent=s.id;
  studentCard.classList.remove('hidden');
  cameraMsg.textContent='✅ Alumno identificado correctamente.';
+ if(activeTask){
+   currentTaskInfo.innerHTML='<b>'+activeTask.name+'</b> · '+activeTask.field+' · '+activeTask.trim;
+   activity.value=activeTask.name;
+ }
  return true;
 }
 function identifyManual(){identify(manualCode.value)}
@@ -165,14 +189,68 @@ function stopScanner(){
  if(qrReader){qrReader.stop().catch(()=>{}).finally(()=>{qrReader.clear().catch(()=>{});qrReader=null;});}
  document.getElementById('qrReader').classList.add('hidden');
 }
+function activateTask(){
+ const name=taskName.value.trim();
+ if(!name){alert('Escribe el nombre de la tarea.');return}
+ activeTask={name,field:taskField.value,trim:taskTrim.value,started:new Date().toLocaleString('es-MX')};
+ localStorage.setItem('MI_AULA_4A_ACTIVE_TASK',JSON.stringify(activeTask));
+ updateTaskUI();
+ alert('✅ Tarea activa: '+name);
+}
+function closeTask(){
+ if(activeTask && !confirm('¿Cerrar la tarea activa? Podrás crear otra después.')) return;
+ activeTask=null;
+ localStorage.removeItem('MI_AULA_4A_ACTIVE_TASK');
+ updateTaskUI();
+}
+function updateTaskUI(){
+ if(activeTask){
+   activeTaskBox.classList.remove('hidden');
+   activeTaskBox.innerHTML='<b>🟢 TAREA ACTIVA</b><br><span class="name">'+activeTask.name+'</span><br>'+activeTask.field+' · '+activeTask.trim;
+   taskName.value=activeTask.name; taskField.value=activeTask.field; taskTrim.value=activeTask.trim;
+   currentTaskInfo.innerHTML='<b>'+activeTask.name+'</b> · '+activeTask.field+' · '+activeTask.trim;
+   renderTaskProgress();
+ }else{
+   activeTaskBox.classList.add('hidden');
+   currentTaskInfo.textContent='Activa una tarea para comenzar.';
+   activity.value='';
+   renderTaskProgress();
+ }
+}
+function taskRecords(){
+ if(!activeTask) return [];
+ return records.filter(r=>r.task===activeTask.name && r.field===activeTask.field && r.trim===activeTask.trim);
+}
+function renderTaskProgress(){
+ if(!activeTask){taskProgressCard.classList.add('hidden');return}
+ taskProgressCard.classList.remove('hidden');
+ const done=new Set(taskRecords().map(r=>r.student));
+ const pendientes=students.filter(s=>!done.has(s.id));
+ const entregaron=students.filter(s=>done.has(s.id));
+ taskProgress.innerHTML='<p><b>'+done.size+' / '+students.length+'</b> alumnos registrados.</p>'+
+ '<p>✅ Entregaron: '+(entregaron.length?entregaron.map(s=>s.name).join(', '):'ninguno')+'</p>'+
+ '<p>⬜ Pendientes: '+(pendientes.length?pendientes.map(s=>s.name).join(', '):'ninguno')+'</p>';
+}
 function saveRecord(){
+ if(!activeTask){alert('Primero activa una tarea.');return}
  if(!selected){alert('Primero identifica al alumno con su QR.');return}
- const task=activity.value.trim(),g=Number(grade.value);
- if(!task||Number.isNaN(g)||g<0||g>10){alert('Escribe la actividad y una calificación de 0 a 10.');return}
- records.unshift({date:new Date().toLocaleString('es-MX'),student:selected.id,field:field.value,trim:trimester.value,task,grade:g});
+ const g=Number(grade.value);
+ if(Number.isNaN(g)||g<0||g>10){alert('Escribe una calificación de 0 a 10.');return}
+ const existing=records.find(r=>r.student===selected.id && r.task===activeTask.name && r.field===activeTask.field && r.trim===activeTask.trim);
+ if(existing){
+   if(!confirm('Este alumno ya tiene un registro para esta tarea. ¿Deseas actualizar la calificación?')) return;
+   existing.grade=g; existing.date=new Date().toLocaleString('es-MX');
+ }else{
+   records.unshift({date:new Date().toLocaleString('es-MX'),student:selected.id,field:activeTask.field,trim:activeTask.trim,task:activeTask.name,grade:g});
+ }
  localStorage.setItem('MI_AULA_4A_RECORDS',JSON.stringify(records));
- activity.value='';grade.value='';renderHistory();
- alert('✅ Registro guardado para '+selected.name);
+ grade.value='';
+ renderHistory(); renderTaskProgress();
+ alert('✅ '+selected.name+' registrado en '+activeTask.name+'.');
+ selected=null;
+ studentCard.classList.add('hidden');
+ currentTaskInfo.innerHTML='<b>'+activeTask.name+'</b> · Listo para el siguiente alumno.';
+ startScanner();
 }
 function renderHistory(){
  const fs=filterStudent.value,ft=filterTrim.value;
@@ -189,13 +267,13 @@ function exportCSV(){
 }
 function clearRecords(){
  if(!records.length){alert('No hay registros para borrar.');return}
- if(confirm('¿Seguro que deseas borrar todos los registros guardados en esta tablet?')){records=[];localStorage.setItem('MI_AULA_4A_RECORDS','[]');renderHistory()}
+ if(confirm('¿Seguro que deseas borrar todos los registros guardados en esta tablet?')){records=[];localStorage.setItem('MI_AULA_4A_RECORDS','[]');renderHistory();renderTaskProgress()}
 }
 function renderStudents(){
  studentsList.innerHTML=students.map(s=>'<div class="student"><span class="badge">'+s.id+'</span> <b>'+s.name+'</b>'+(s.surname?' — '+s.surname:'')+'</div>').join('');
  filterStudent.innerHTML='<option value="">Todos los alumnos</option>'+students.map(s=>'<option value="'+s.id+'">'+s.id+' — '+s.name+'</option>').join('');
 }
-renderStudents();renderHistory();
+renderStudents();renderHistory();updateTaskUI();
 if('serviceWorker' in navigator){navigator.serviceWorker.register('./sw.js').catch(()=>{});}
 </script>
 </body></html>
