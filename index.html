@@ -1,1 +1,189 @@
-<!doctype html><html lang="es"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="theme-color" content="#163e70"><link rel="manifest" href="manifest.webmanifest"><title>MI AULA 4° A</title><style>body{font-family:Arial;margin:0;background:#eef3f9;color:#172033}header{background:#163e70;color:white;padding:20px;text-align:center}main{max-width:800px;margin:auto;padding:16px}.card{background:white;border-radius:16px;padding:18px;margin:14px 0;box-shadow:0 3px 15px #0002}button,input,select{width:100%;padding:13px;margin:6px 0;font-size:16px;border-radius:10px;border:1px solid #ccd}button{background:#163e70;color:white;font-weight:bold}</style></head><body><header><h1>📚 MI AULA 4° A</h1><div>Evaluación y registro por QR</div></header><main><div class="card"><h2>📷 Escanear alumno</h2><p>La aplicación está publicada. El lector QR se habilitará en la siguiente actualización.</p><button onclick="alert('Usa el código del alumno en la versión completa.')">ESCANEAR QR</button></div><div class="card"><h2>📝 Registrar actividad</h2><select><option>Lenguajes</option><option>Saberes y pensamiento científico</option><option>Ética, naturaleza y sociedades</option><option>De lo humano y lo comunitario</option></select><input placeholder="Actividad o tarea"><input type="number" min="0" max="10" placeholder="Calificación 0–10"><button onclick="alert('Registro de prueba')">GUARDAR REGISTRO</button></div></main></body></html>
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#163e70">
+<link rel="manifest" href="manifest.webmanifest">
+<title>MI AULA 4° A</title>
+<style>
+*{box-sizing:border-box}body{margin:0;font-family:Arial,sans-serif;background:#eef3f9;color:#172033}
+header{background:#163e70;color:#fff;padding:18px;text-align:center;position:sticky;top:0;z-index:5}
+header h1{margin:0 0 5px;font-size:26px}main{max-width:900px;margin:auto;padding:12px}
+.card{background:#fff;border-radius:18px;padding:18px;margin:13px 0;box-shadow:0 4px 18px #0002}
+button,input,select{width:100%;padding:13px;border-radius:12px;border:1px solid #cbd5e1;font-size:16px;margin:5px 0}
+button{background:#163e70;color:#fff;border:0;font-weight:700;cursor:pointer}
+button.secondary{background:#e8eef7;color:#163e70}.danger{background:#a92828}
+video{width:100%;max-height:55vh;background:#111;border-radius:15px;object-fit:cover}.hidden{display:none}
+.success{background:#eaf9ef;border:2px solid #32a852;border-radius:15px;padding:15px}
+.name{font-size:25px;font-weight:800}.code{font-weight:bold;color:#163e70;margin-top:5px}
+.grid{display:grid;grid-template-columns:1fr 1fr;gap:8px}.small{font-size:13px;color:#5d6878}
+table{width:100%;border-collapse:collapse;margin-top:10px}th,td{padding:8px;border-bottom:1px solid #ddd;text-align:left;font-size:13px}
+.badge{display:inline-block;background:#e8eef7;color:#163e70;padding:5px 8px;border-radius:9px;font-size:12px;font-weight:bold}
+.student-list{max-height:350px;overflow:auto}.student{padding:10px;border-bottom:1px solid #ddd}
+@media(max-width:600px){.grid{grid-template-columns:1fr}}
+</style>
+</head>
+<body>
+<header><h1>📚 MI AULA 4° A</h1><div>Sistema de evaluación mediante QR</div></header>
+<main>
+
+<div class="card">
+<h2>📷 Identificar alumno</h2>
+<p class="small">Muestra al alumno su tarjeta QR y apunta la cámara hacia el código.</p>
+<button onclick="startScanner()">📷 ESCANEAR QR</button>
+<button class="secondary" onclick="stopScanner()">⏹ Detener cámara</button>
+<video id="video" class="hidden" autoplay playsinline muted></video>
+<p id="cameraMsg">Cámara apagada.</p>
+</div>
+
+<div class="card">
+<h2>⌨️ Identificación manual</h2>
+<p class="small">Respaldo por si el navegador no permite leer el QR.</p>
+<div class="grid"><input id="manualCode" placeholder="Ejemplo: 4A-01"><button onclick="identifyManual()">Identificar alumno</button></div>
+</div>
+
+<div id="studentCard" class="card hidden">
+<div class="success">
+<div>✅ ALUMNO IDENTIFICADO</div>
+<div class="name" id="studentName"></div>
+<div id="studentSurname"></div>
+<div class="code" id="studentCode"></div>
+</div>
+</div>
+
+<div class="card">
+<h2>📝 Registrar actividad</h2>
+<div class="grid">
+<select id="field">
+<option>Lenguajes</option>
+<option>Saberes y pensamiento científico</option>
+<option>Ética, naturaleza y sociedades</option>
+<option>De lo humano y lo comunitario</option>
+</select>
+<select id="trimester">
+<option>1er trimestre</option><option>2do trimestre</option><option>3er trimestre</option>
+</select>
+</div>
+<input id="activity" placeholder="Actividad o tarea">
+<div class="grid"><input id="grade" type="number" min="0" max="10" step="0.1" placeholder="Calificación 0–10">
+<button onclick="saveRecord()">💾 Guardar registro</button></div>
+<p class="small">Primero identifica al alumno y después registra su actividad.</p>
+</div>
+
+<div class="card">
+<h2>📊 Historial</h2>
+<div class="grid">
+<select id="filterStudent" onchange="renderHistory()"><option value="">Todos los alumnos</option></select>
+<select id="filterTrim" onchange="renderHistory()"><option value="">Todos los trimestres</option><option>1er trimestre</option><option>2do trimestre</option><option>3er trimestre</option></select>
+</div>
+<div id="history"></div>
+<button class="secondary" onclick="exportCSV()">⬇ Exportar registros CSV</button>
+<button class="danger" onclick="clearRecords()">🗑 Borrar todos los registros</button>
+</div>
+
+<div class="card">
+<h2>👨‍🎓 Alumnos de 4° A</h2>
+<div id="studentsList" class="student-list"></div>
+</div>
+
+</main>
+<script>
+const students=[
+{id:'4A-01',surname:'BE / CAAMAL',name:'IKER JHAEL'},
+{id:'4A-02',surname:'BE / TEC',name:'ESTEFANIA'},
+{id:'4A-03',surname:'CHAN / KUMUL',name:'ASHLEY GISELLE'},
+{id:'4A-04',surname:'CHIMAL / CHAN',name:'LORENZO'},
+{id:'4A-05',surname:'CUPUL / PECH',name:'YESICA ANAHI'},
+{id:'4A-06',surname:'GUZMAN / CAAMAL',name:'IRVING EMMANUEL'},
+{id:'4A-07',surname:'HERNANDEZ / CHAN',name:'ULICES SEBASTIAN'},
+{id:'4A-08',surname:'KANXOC / KUMUL',name:'ANGEL FRANCISCO'},
+{id:'4A-09',surname:'KUMUL / BALAM',name:'PEDRO ISAI'},
+{id:'4A-10',surname:'MAHLA / CARDENAS',name:'JORDAN GAEL'},
+{id:'4A-11',surname:'MAHLA / KUMUL',name:'REYES BENJAMIN'},
+{id:'4A-12',surname:'',name:'JESUS'},
+{id:'4A-13',surname:'MOOH / CAAMAL',name:'ALEX ANTONIO'},
+{id:'4A-14',surname:'OY / LOPEZ',name:'DIEGO EDUARDO'},
+{id:'4A-15',surname:'POOL / PECH',name:'ELSY ALEJANDRA'},
+{id:'4A-16',surname:'POOT / CHI',name:'FATIMA CONCEPCION'},
+{id:'4A-17',surname:'XIU / MAHLA',name:'ZULIA DAYAMI'},
+{id:'4A-18',surname:'ZULUB / PECH',name:'NICTE NOEMI'},
+{id:'4A-19',surname:'',name:'BETZAIDA'},
+{id:'4A-20',surname:'',name:'ALUMNO 20 — EDITAR'}
+];
+
+let records=JSON.parse(localStorage.getItem('MI_AULA_4A_RECORDS')||'[]');
+let selected=null,stream=null,detector=null,scanning=false;
+
+function studentById(id){return students.find(s=>s.id===id)}
+function identify(id){
+ id=String(id||'').trim().toUpperCase();
+ const s=studentById(id);
+ if(!s){cameraMsg.textContent='❌ Código no reconocido: '+id;return false}
+ selected=s;
+ studentName.textContent=s.name;
+ studentSurname.textContent=s.surname;
+ studentCode.textContent=s.id;
+ studentCard.classList.remove('hidden');
+ cameraMsg.textContent='✅ Alumno identificado correctamente.';
+ return true;
+}
+function identifyManual(){identify(manualCode.value)}
+async function startScanner(){
+ if(!window.isSecureContext){cameraMsg.textContent='⚠️ La cámara requiere una conexión HTTPS.';return}
+ if(!navigator.mediaDevices||!navigator.mediaDevices.getUserMedia){cameraMsg.textContent='⚠️ Este navegador no permite acceso a la cámara.';return}
+ if(!('BarcodeDetector' in window)){cameraMsg.textContent='⚠️ Este navegador no tiene lector QR integrado. Usa el código manual.';return}
+ try{
+  detector=new BarcodeDetector({formats:['qr_code']});
+  stream=await navigator.mediaDevices.getUserMedia({video:{facingMode:{ideal:'environment'}},audio:false});
+  video.srcObject=stream;video.classList.remove('hidden');scanning=true;
+  cameraMsg.textContent='📷 Apunta al código QR…';scanLoop();
+ }catch(e){cameraMsg.textContent='❌ No se pudo abrir la cámara. Revisa el permiso del navegador.'}
+}
+async function scanLoop(){
+ if(!scanning)return;
+ try{
+  const codes=await detector.detect(video);
+  if(codes.length&&identify(codes[0].rawValue)){stopScanner();return}
+ }catch(e){}
+ requestAnimationFrame(scanLoop);
+}
+function stopScanner(){
+ scanning=false;
+ if(stream){stream.getTracks().forEach(t=>t.stop());stream=null}
+ video.srcObject=null;video.classList.add('hidden');
+}
+function saveRecord(){
+ if(!selected){alert('Primero identifica al alumno con su QR.');return}
+ const task=activity.value.trim(),g=Number(grade.value);
+ if(!task||Number.isNaN(g)||g<0||g>10){alert('Escribe la actividad y una calificación de 0 a 10.');return}
+ records.unshift({date:new Date().toLocaleString('es-MX'),student:selected.id,field:field.value,trim:trimester.value,task,grade:g});
+ localStorage.setItem('MI_AULA_4A_RECORDS',JSON.stringify(records));
+ activity.value='';grade.value='';renderHistory();
+ alert('✅ Registro guardado para '+selected.name);
+}
+function renderHistory(){
+ const fs=filterStudent.value,ft=filterTrim.value;
+ const data=records.filter(r=>(!fs||r.student===fs)&&(!ft||r.trim===ft));
+ if(!data.length){history.innerHTML='<p class="small">No hay registros todavía.</p>';return}
+ history.innerHTML='<table><tr><th>Fecha</th><th>Alumno</th><th>Actividad</th><th>Campo</th><th>Trim.</th><th>Cal.</th></tr>'+
+ data.slice(0,100).map(r=>{const s=studentById(r.student)||{name:r.student};return '<tr><td>'+r.date+'</td><td>'+s.name+'</td><td>'+r.task+'</td><td>'+r.field+'</td><td>'+r.trim+'</td><td><b>'+r.grade+'</b></td></tr>'}).join('')+'</table>';
+}
+function exportCSV(){
+ const rows=[['Fecha','Alumno','Código QR','Campo formativo','Trimestre','Actividad','Calificación']];
+ records.forEach(r=>{const s=studentById(r.student)||{name:r.student};rows.push([r.date,s.name,r.student,r.field,r.trim,r.task,r.grade])});
+ const csv=rows.map(row=>row.map(v=>'"'+String(v).replaceAll('"','""')+'"').join(',')).join('\n');
+ const a=document.createElement('a');a.href=URL.createObjectURL(new Blob(['\ufeff'+csv],{type:'text/csv;charset=utf-8'}));a.download='MI_AULA_4A_REGISTROS.csv';a.click();
+}
+function clearRecords(){
+ if(!records.length){alert('No hay registros para borrar.');return}
+ if(confirm('¿Seguro que deseas borrar todos los registros guardados en esta tablet?')){records=[];localStorage.setItem('MI_AULA_4A_RECORDS','[]');renderHistory()}
+}
+function renderStudents(){
+ studentsList.innerHTML=students.map(s=>'<div class="student"><span class="badge">'+s.id+'</span> <b>'+s.name+'</b>'+(s.surname?' — '+s.surname:'')+'</div>').join('');
+ filterStudent.innerHTML='<option value="">Todos los alumnos</option>'+students.map(s=>'<option value="'+s.id+'">'+s.id+' — '+s.name+'</option>').join('');
+}
+renderStudents();renderHistory();
+if('serviceWorker' in navigator){navigator.serviceWorker.register('./sw.js').catch(()=>{});}
+</script>
+</body></html>
