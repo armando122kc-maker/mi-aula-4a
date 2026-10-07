@@ -102,6 +102,70 @@ table{width:100%;border-collapse:collapse;margin-top:10px}th,td{padding:8px;bord
 </div>
 
 <div class="card">
+<h2>📋 Control general de tareas</h2>
+<p class="small">Aquí puedes ver de un solo vistazo las tareas registradas, quién entregó y quién está pendiente.</p>
+<div class="grid">
+<select id="reportTrim" onchange="renderTaskMatrix()">
+<option value="">Todos los trimestres</option>
+<option>1er trimestre</option><option>2do trimestre</option><option>3er trimestre</option>
+</select>
+<select id="reportField" onchange="renderTaskMatrix()">
+<option value="">Todos los campos formativos</option>
+<option>Lenguajes</option>
+<option>Saberes y pensamiento científico</option>
+<option>Ética, naturaleza y sociedades</option>
+<option>De lo humano y lo comunitario</option>
+</select>
+</div>
+<div id="taskMatrix"></div>
+<button class="secondary" onclick="exportTaskMatrixCSV()">⬇ Exportar control de tareas</button>
+</div>
+
+function getAllTasks(){
+ const map=new Map();
+ records.forEach(r=>{
+   const key=r.task+'|'+r.field+'|'+r.trim;
+   if(!map.has(key)) map.set(key,{task:r.task,field:r.field,trim:r.trim});
+ });
+ return Array.from(map.values());
+}
+function renderTaskMatrix(){
+ const ft=reportTrim.value, ff=reportField.value;
+ const tasks=getAllTasks().filter(t=>(!ft||t.trim===ft)&&(!ff||t.field===ff));
+ if(!tasks.length){taskMatrix.innerHTML='<p class="small">Todavía no hay tareas registradas. Cuando registres tareas aparecerán aquí automáticamente.</p>';return}
+ let html='<div style="overflow:auto"><table><tr><th>Alumno</th>'+tasks.map((t,i)=>'<th title="'+t.field+' · '+t.trim+'">T'+(i+1)+'</th>').join('')+'<th>Cumplidas</th><th>%</th></tr>';
+ students.forEach(s=>{
+   let done=0;
+   html+='<tr><td><b>'+s.name+'</b><br><span class="small">'+s.id+'</span></td>';
+   tasks.forEach(t=>{
+     const r=records.find(x=>x.student===s.id&&x.task===t.task&&x.field===t.field&&x.trim===t.trim);
+     if(r){done++;html+='<td style="text-align:center">✅<br><b>'+r.grade+'</b></td>'}
+     else html+='<td style="text-align:center">❌</td>';
+   });
+   const pct=Math.round(done/tasks.length*100);
+   html+='<td><b>'+done+'/'+tasks.length+'</b></td><td><b>'+pct+'%</b></td></tr>';
+ });
+ html+='</table></div><p class="small"><b>✅</b> Entregó · <b>❌</b> Pendiente · La calificación aparece debajo de cada entrega.</p>';
+ taskMatrix.innerHTML=html;
+}
+function exportTaskMatrixCSV(){
+ const ft=reportTrim.value, ff=reportField.value;
+ const tasks=getAllTasks().filter(t=>(!ft||t.trim===ft)&&(!ff||t.field===ff));
+ if(!tasks.length){alert('No hay tareas para exportar.');return}
+ const rows=[['Alumno','Código QR',...tasks.map(t=>t.task), 'Tareas cumplidas','Porcentaje']];
+ students.forEach(s=>{
+   let done=0;
+   const vals=tasks.map(t=>{
+     const r=records.find(x=>x.student===s.id&&x.task===t.task&&x.field===t.field&&x.trim===t.trim);
+     if(r){done++;return 'Entregó - '+r.grade}
+     return 'Pendiente';
+   });
+   rows.push([s.name,s.id,...vals,done,Math.round(done/tasks.length*100)+'%']);
+ });
+ const csv=rows.map(row=>row.map(v=>'"'+String(v).replaceAll('"','""')+'"').join(',')).join('\n');
+ const a=document.createElement('a');a.href=URL.createObjectURL(new Blob(['\ufeff'+csv],{type:'text/csv;charset=utf-8'}));a.download='MI_AULA_4A_CONTROL_TAREAS.csv';a.click();
+}
+<div class="card">
 <h2>👨‍🎓 Alumnos de 4° A</h2>
 <div id="studentsList" class="student-list"></div>
 </div>
@@ -273,7 +337,7 @@ function renderStudents(){
  studentsList.innerHTML=students.map(s=>'<div class="student"><span class="badge">'+s.id+'</span> <b>'+s.name+'</b>'+(s.surname?' — '+s.surname:'')+'</div>').join('');
  filterStudent.innerHTML='<option value="">Todos los alumnos</option>'+students.map(s=>'<option value="'+s.id+'">'+s.id+' — '+s.name+'</option>').join('');
 }
-renderStudents();renderHistory();updateTaskUI();
+renderStudents();renderHistory();updateTaskUI();renderTaskMatrix();
 if('serviceWorker' in navigator){navigator.serviceWorker.register('./sw.js').catch(()=>{});}
 </script>
 </body></html>
