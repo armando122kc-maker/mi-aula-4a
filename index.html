@@ -28,6 +28,26 @@ table{width:100%;border-collapse:collapse;margin-top:10px}th,td{padding:8px;bord
 <header><h1>📚 MI AULA 4° A</h1><div>Sistema de evaluación mediante QR</div></header>
 <main>
 
+<div class="card" id="trimesterCard">
+<h2>📅 Trimestre actual</h2>
+<div class="success">
+<div id="currentTrimLabel" class="name">1er trimestre</div>
+<p class="small">La pantalla principal mostrará únicamente las tareas del trimestre actual. Los trimestres anteriores quedarán guardados y podrán consultarse cuando lo necesites.</p>
+</div>
+<button class="danger" onclick="closeCurrentTrimester()">🔒 CERRAR TRIMESTRE Y ARCHIVAR</button>
+</div>
+
+<div class="card">
+<h2>📦 Trimestres archivados</h2>
+<p class="small">Consulta un trimestre anterior sin mezclarlo con el actual.</p>
+<div class="grid">
+<button class="secondary" onclick="viewArchivedTrim('1er trimestre')">1er trimestre</button>
+<button class="secondary" onclick="viewArchivedTrim('2do trimestre')">2do trimestre</button>
+<button class="secondary" onclick="viewArchivedTrim('3er trimestre')">3er trimestre</button>
+</div>
+<div id="archiveMsg" class="small"></div>
+</div>
+
 <div class="card">
 <h2>📝 Banco de tareas</h2>
 <p class="small">Registra y guarda tus tareas aunque todavía no quieras comenzar el registro de alumnos. Después podrás elegir una tarea guardada y activarla.</p>
@@ -379,6 +399,57 @@ function renderStudents(){
 }
 renderStudents();renderHistory();updateTaskUI();renderTaskMatrix();renderStudentDetail();
 if('serviceWorker' in navigator){navigator.serviceWorker.register('./sw.js').catch(()=>{});}
+
+/* ORGANIZACIÓN POR TRIMESTRE */
+function getCurrentTrim(){return localStorage.getItem('MI_AULA_4A_CURRENT_TRIM')||'1er trimestre'}
+function setCurrentTrim(t){localStorage.setItem('MI_AULA_4A_CURRENT_TRIM',t);applyCurrentTrimUI()}
+function applyCurrentTrimUI(){
+ const t=getCurrentTrim();
+ const label=document.getElementById('currentTrimLabel'); if(label) label.textContent=t;
+ const selectors=['savedTaskTrim','taskTrim'];
+ selectors.forEach(id=>{const el=document.getElementById(id);if(el){el.value=t;el.disabled=true}});
+ const rt=document.getElementById('reportTrim'); if(rt) rt.value=t;
+ renderSavedTasks(); renderTaskManager(); renderTaskMatrix(); renderStudentDetail();
+}
+function closeCurrentTrimester(){
+ const current=getCurrentTrim();
+ const next=current==='1er trimestre'?'2do trimestre':current==='2do trimestre'?'3er trimestre':null;
+ if(!confirm('¿Cerrar y archivar '+current+'? Todos sus registros se conservarán.')) return;
+ if(activeTask){activeTask=null;localStorage.removeItem('MI_AULA_4A_ACTIVE_TASK');}
+ if(!next){
+   alert('✅ El 3er trimestre quedó archivado. Todos los datos siguen guardados para consulta.');
+   applyCurrentTrimUI(); return;
+ }
+ setCurrentTrim(next);
+ taskName.value=''; taskField.selectedIndex=0; taskTrim.value=next; activity.value='';
+ alert('📦 '+current+' fue archivado correctamente. Ahora estás en '+next+'.');
+ window.scrollTo({top:0,behavior:'smooth'});
+}
+function viewArchivedTrim(t){
+ const current=getCurrentTrim();
+ if(t===current){alert('Ese es el trimestre actual.');return}
+ const n=records.filter(r=>r.trim===t).length;
+ document.getElementById('archiveMsg').innerHTML='📚 Consultando <b>'+t+'</b>: '+n+' registros conservados. En “Control general de tareas” se mostrarán sus actividades.';
+ reportTrim.value=t; renderTaskMatrix(); renderStudentDetail();
+ document.getElementById('archiveMsg').scrollIntoView({behavior:'smooth',block:'center'});
+}
+const _renderSavedTasks=renderSavedTasks;
+renderSavedTasks=function(){
+ const b=document.getElementById('savedTasksList'); if(!b)return;
+ const ts=getSavedTasks().filter(t=>t.trim===getCurrentTrim());
+ b.innerHTML=ts.length?'<h3>📚 Tareas guardadas de '+getCurrentTrim()+'</h3>'+ts.map((t)=>{const idx=getSavedTasks().indexOf(t);return '<div style="padding:10px;border-bottom:1px solid #ddd"><b>📌 '+t.name+'</b><br><span class="small">'+t.field+' · '+t.trim+'</span><div class="grid"><button onclick="activateSavedTask('+idx+')">▶️ INICIAR REGISTRO</button><button class="danger" onclick="deleteSavedTask('+idx+')">🗑️ QUITAR</button></div></div>'}).join(''):'<p class="small">No hay tareas guardadas en '+getCurrentTrim()+'.</p>';
+};
+const _renderTaskManager=renderTaskManager;
+renderTaskManager=function(){
+ const b=document.getElementById('taskManager');if(!b)return;
+ const all=getAllTasks().filter(t=>t.trim===getCurrentTrim());
+ const order=taskOrder();
+ all.sort((a,b)=>{const ia=order.indexOf(taskId(a)),ib=order.indexOf(taskId(b));if(ia>=0&&ib>=0)return ia-ib;if(ia>=0)return -1;if(ib>=0)return 1;const f=a.field.localeCompare(b.field,'es');if(f)return f;const x=+(a.task.match(/\d+/)||[9999])[0],y=+(b.task.match(/\d+/)||[9999])[0];return x-y});
+ window.taskManagerTasks=all;
+ const groups={};all.forEach((t,i)=>(groups[t.field]??=[]).push([t,i]));
+ b.innerHTML=Object.entries(groups).map(([field,arr])=>'<div style="margin:12px 0"><h3>📚 '+field+'</h3>'+arr.map(([t,i])=>{const n=new Set(records.filter(r=>r.task===t.task&&r.field===t.field&&r.trim===t.trim).map(r=>r.student)).size;return '<div style="padding:10px;border-bottom:1px solid #ddd"><b>📌 '+t.task+'</b><br><span class="small">'+t.trim+' · '+n+'/'+students.length+' entregas'+(t.saved?' · 📝 GUARDADA':'')+'</span><div class="grid"><button onclick="activateFromManager('+i+')">▶️ INICIAR / CONTINUAR</button><button class="secondary" onclick="moveTask('+i+',-1)">⬆️</button><button class="secondary" onclick="moveTask('+i+',1)">⬇️</button><button class="danger" onclick="deleteTask('+i+')">🗑️</button></div></div>'}).join('')+'</div>').join('')||'<p class="small">No hay tareas del '+getCurrentTrim()+' todavía.</p>';
+};
+applyCurrentTrimUI();
 function taskOrder(){return JSON.parse(localStorage.getItem('MI_AULA_4A_TASK_ORDER')||'[]')}function saveTaskOrder(o){localStorage.setItem('MI_AULA_4A_TASK_ORDER',JSON.stringify(o))}function taskId(t){return t.task+'|'+t.field+'|'+t.trim}function moveTask(i,dir){const ts=window.taskManagerTasks.slice();const j=i+dir;if(j<0||j>=ts.length)return;const a=taskId(ts[i]),b=taskId(ts[j]),o=taskOrder().filter(x=>x!==a&&x!==b);o.push(b,a);saveTaskOrder(o);renderTaskManager()}function getAllTasks(){const m=new Map();records.forEach(r=>{const k=r.task+'|'+r.field+'|'+r.trim;if(!m.has(k))m.set(k,{task:r.task,field:r.field,trim:r.trim,started:r.date})});getSavedTasks().forEach(t=>{const k=t.name+'|'+t.field+'|'+t.trim;if(!m.has(k))m.set(k,{task:t.name,field:t.field,trim:t.trim,saved:true})});return [...m.values()]}function renderTaskManager(){const b=document.getElementById('taskManager');if(!b)return;let ts=getAllTasks();const order=taskOrder();ts.sort((a,b)=>{const ia=order.indexOf(taskId(a)),ib=order.indexOf(taskId(b));if(ia>=0&&ib>=0)return ia-ib;if(ia>=0)return -1;if(ib>=0)return 1;const f=a.field.localeCompare(b.field,'es');if(f)return f;const x=+(a.task.match(/\d+/)||[9999])[0],y=+(b.task.match(/\d+/)||[9999])[0];return x-y});window.taskManagerTasks=ts;const groups={};ts.forEach((t,i)=>(groups[t.field]??=[]).push([t,i]));b.innerHTML=Object.entries(groups).map(([field,arr])=>'<div style="margin:12px 0"><h3>📚 '+field+'</h3>'+arr.map(([t,i])=>{const n=new Set(records.filter(r=>r.task===t.task&&r.field===t.field&&r.trim===t.trim).map(r=>r.student)).size;return '<div style="padding:10px;border-bottom:1px solid #ddd"><b>📌 '+t.task+'</b><br><span class="small">'+t.trim+' · '+n+'/'+students.length+' entregas'+(t.saved?' · 📝 GUARDADA':'')+'</span><div class="grid"><button onclick="activateFromManager('+i+')">▶️ INICIAR / CONTINUAR</button><button class="secondary" onclick="moveTask('+i+',-1)">⬆️</button><button class="secondary" onclick="moveTask('+i+',1)">⬇️</button><button class="danger" onclick="deleteTask('+i+')">🗑️</button></div></div>'}).join('')+'</div>').join('')||'<p class="small">No hay tareas registradas.</p>'}function activateFromManager(i){const t=window.taskManagerTasks[i];taskName.value=t.task;taskField.value=t.field;taskTrim.value=t.trim;activateTask();} function reopenTask(i){const t=window.taskManagerTasks[i];activeTask={name:t.task,field:t.field,trim:t.trim};localStorage.setItem('MI_AULA_4A_ACTIVE_TASK',JSON.stringify(activeTask));updateTaskUI();renderTaskManager();window.scrollTo({top:0,behavior:'smooth'})}function deleteTask(i){const t=window.taskManagerTasks[i];if(!t)return;if(!confirm('¿Eliminar '+t.task+'? Se eliminarán sus registros y calificaciones. Esta acción no se puede deshacer.'))return;records=records.filter(r=>!(r.task===t.task&&r.field===t.field&&r.trim===t.trim));localStorage.setItem('MI_AULA_4A_RECORDS',JSON.stringify(records));if(activeTask&&activeTask.name===t.task&&activeTask.field===t.field&&activeTask.trim===t.trim){activeTask=null;localStorage.removeItem('MI_AULA_4A_ACTIVE_TASK')}renderTaskManager();renderHistory();renderTaskMatrix();updateTaskUI();alert('🗑️ Tarea eliminada correctamente.')} function editTask(i){const t=window.taskManagerTasks[i],n=prompt('Nuevo nombre de la tarea:',t.task);if(n===null)return;if(!n.trim())return;records.forEach(r=>{if(r.task===t.task&&r.field===t.field&&r.trim===t.trim)r.task=n.trim()});localStorage.setItem('MI_AULA_4A_RECORDS',JSON.stringify(records));if(activeTask&&activeTask.name===t.task&&activeTask.field===t.field&&activeTask.trim===t.trim){activeTask.name=n.trim();localStorage.setItem('MI_AULA_4A_ACTIVE_TASK',JSON.stringify(activeTask))}renderTaskManager();renderHistory();renderTaskMatrix();updateTaskUI();alert('✅ Tarea editada correctamente.')} renderTaskManager();
 </script>
 </body></html>
