@@ -434,10 +434,21 @@ function viewArchivedTrim(t){
  document.getElementById('archiveMsg').scrollIntoView({behavior:'smooth',block:'center'});
 }
 const _renderSavedTasks=renderSavedTasks;
+function activateVisibleSavedTask(i){
+ const visible=getSavedTasks().filter(t=>t.trim===getCurrentTrim());
+ const t=visible[i];
+ if(!t){alert('No se encontró la tarea en el trimestre actual. Actualiza la página e inténtalo de nuevo.');return}
+ taskName.value=t.name; taskField.value=t.field; taskTrim.value=t.trim;
+ activeTask={name:t.name,field:t.field,trim:t.trim,started:new Date().toLocaleString('es-MX')};
+ localStorage.setItem('MI_AULA_4A_ACTIVE_TASK',JSON.stringify(activeTask));
+ updateTaskUI(); renderTaskManager();
+ document.getElementById('activeTaskBox').scrollIntoView({behavior:'smooth',block:'center'});
+ alert('✅ Tarea lista para registrar: '+t.name);
+}
 renderSavedTasks=function(){
  const b=document.getElementById('savedTasksList'); if(!b)return;
- const ts=getSavedTasks().filter(t=>t.trim===getCurrentTrim());
- b.innerHTML=ts.length?'<h3>📚 Tareas guardadas de '+getCurrentTrim()+'</h3>'+ts.map((t)=>{const idx=getSavedTasks().indexOf(t);return '<div style="padding:10px;border-bottom:1px solid #ddd"><b>📌 '+t.name+'</b><br><span class="small">'+t.field+' · '+t.trim+'</span><div class="grid"><button onclick="activateSavedTask('+idx+')">▶️ INICIAR REGISTRO</button><button class="danger" onclick="deleteSavedTask('+idx+')">🗑️ QUITAR</button></div></div>'}).join(''):'<p class="small">No hay tareas guardadas en '+getCurrentTrim()+'.</p>';
+ const all=getSavedTasks(), ts=all.map((t,idx)=>({...t,originalIndex:idx})).filter(t=>t.trim===getCurrentTrim());
+ b.innerHTML=ts.length?'<h3>📚 Tareas guardadas de '+getCurrentTrim()+'</h3>'+ts.map((t,i)=>'<div style="padding:10px;border-bottom:1px solid #ddd"><b>📌 '+t.name+'</b><br><span class="small">'+t.field+' · '+t.trim+'</span><div class="grid"><button onclick="activateVisibleSavedTask('+i+')">▶️ INICIAR REGISTRO</button><button class="danger" onclick="deleteSavedTask('+t.originalIndex+')">🗑️ QUITAR</button></div></div>').join(''):'<p class="small">No hay tareas guardadas en '+getCurrentTrim()+'.</p>';
 };
 const _renderTaskManager=renderTaskManager;
 renderTaskManager=function(){
