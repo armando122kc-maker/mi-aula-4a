@@ -334,8 +334,8 @@ function renderStudentDetail(){
    if(r){done++;rows+='<tr><td>'+(i+1)+'</td><td>'+t.task+'</td><td>'+t.field+'</td><td>'+t.trim+'</td><td>✅ Entregó</td><td><b>'+r.grade+'</b></td></tr>'}
    else rows+='<tr><td>'+(i+1)+'</td><td>'+t.task+'</td><td>'+t.field+'</td><td>'+t.trim+'</td><td>❌ Pendiente</td><td>—</td></tr>';
  });
- const pct=tasks.length?Math.round(done/tasks.length*100):0;
- studentTaskSummary.innerHTML='<b>'+s.name+'</b> · '+done+' de '+tasks.length+' tareas entregadas · <b>'+pct+'%</b>';
+ const points30=tasks.length?(done/tasks.length*30):0;
+ studentTaskSummary.innerHTML='<b>'+s.name+'</b> · '+done+' de '+tasks.length+' tareas entregadas · <b>'+points30.toFixed(1)+'/30 puntos</b>';
  studentDetail.innerHTML=tasks.length?'<div style="overflow:auto"><table><tr><th>#</th><th>Actividad</th><th>Campo</th><th>Trim.</th><th>Estado</th><th>Cal.</th></tr>'+rows+'</table></div>':'<p class="small">No hay actividades registradas con los filtros seleccionados.</p>';
 }
 function renderTaskMatrix(){
@@ -343,7 +343,7 @@ function renderTaskMatrix(){
  const ft=reportTrim.value, ff=reportField.value;
  const tasks=getAllTasks().filter(t=>(!ft||t.trim===ft)&&(!ff||t.field===ff));
  if(!tasks.length){taskMatrix.innerHTML='<p class="small">Todavía no hay tareas registradas. Cuando registres tareas aparecerán aquí automáticamente.</p>';renderStudentDetail();return}
- let html='<div style="overflow:auto"><table><tr><th>Alumno</th>'+tasks.map((t,i)=>'<th title="'+t.field+' · '+t.trim+'">T'+(i+1)+'</th>').join('')+'<th>Cumplidas</th><th>%</th></tr>';
+ let html='<div style="overflow:auto"><table><tr><th>Alumno</th>'+tasks.map((t,i)=>'<th title="'+t.field+' · '+t.trim+'">T'+(i+1)+'</th>').join('')+'<th>Cumplidas</th><th>Puntos /30</th></tr>';
  students.forEach(s=>{
    let done=0;
    html+='<tr><td><b>'+s.name+'</b><br><span class="small">'+s.id+'</span></td>';
@@ -352,8 +352,8 @@ function renderTaskMatrix(){
      if(r){done++;html+='<td style="text-align:center">✅<br><b>'+r.grade+'</b></td>'}
      else html+='<td style="text-align:center">❌</td>';
    });
-   const pct=Math.round(done/tasks.length*100);
-   html+='<td><b>'+done+'/'+tasks.length+'</b></td><td><b>'+pct+'%</b></td></tr>';
+   const points30=(done/tasks.length)*30;
+   html+='<td><b>'+done+'/'+tasks.length+'</b></td><td><b>'+points30.toFixed(1)+'/30</b></td></tr>';
  });
  html+='</table></div><p class="small"><b>✅</b> Entregó · <b>❌</b> Pendiente · La calificación aparece debajo de cada entrega.</p>';
  taskMatrix.innerHTML=html;
@@ -362,7 +362,7 @@ function exportTaskMatrixCSV(){
  const ft=reportTrim.value, ff=reportField.value;
  const tasks=getAllTasks().filter(t=>(!ft||t.trim===ft)&&(!ff||t.field===ff));
  if(!tasks.length){alert('No hay tareas para exportar.');return}
- const rows=[['Alumno','Código QR',...tasks.map(t=>t.task), 'Tareas cumplidas','Porcentaje']];
+ const rows=[['Alumno','Código QR',...tasks.map(t=>t.task), 'Tareas cumplidas','Puntos de tareas sobre 30']];
  students.forEach(s=>{
    let done=0;
    const vals=tasks.map(t=>{
@@ -370,7 +370,7 @@ function exportTaskMatrixCSV(){
      if(r){done++;return 'Entregó - '+r.grade}
      return 'Pendiente';
    });
-   rows.push([s.name,s.id,...vals,done,Math.round(done/tasks.length*100)+'%']);
+   rows.push([s.name,s.id,...vals,done,(done/tasks.length*30).toFixed(1)+'/30']);
  });
  const csv=rows.map(row=>row.map(v=>'"'+String(v).replaceAll('"','""')+'"').join(',')).join('\n');
  const a=document.createElement('a');a.href=URL.createObjectURL(new Blob(['\ufeff'+csv],{type:'text/csv;charset=utf-8'}));a.download='MI_AULA_4A_CONTROL_TAREAS.csv';a.click();
